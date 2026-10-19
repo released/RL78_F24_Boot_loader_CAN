@@ -2,6 +2,9 @@
 
 - Read README.md, HANDOFF.md and SELF_CHECK.md first. This is the 4MHz target
   board with its own Transfer/Boot/App projects.
+- Keep all three device READMEs in English, with the corresponding F13 reader
+  structure. Verify F24 hardware, commands, artifacts and live capabilities
+  against local sources; use links for full workshop/operation details.
 - image_metadata_config.h owns IMAGE_* geometry/metadata/policy/Boot identity;
   can_boot_config.h owns CAN, boot_app_handoff.h owns RAM/owner. Generators
   read these three explicit sources; do not copy values or use CAN aliases.

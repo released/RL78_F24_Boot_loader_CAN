@@ -1,5 +1,28 @@
 # F24 MCU CAN device handoff
 
+## English README entry points (2026-10-19)
+
+Reorganized Transfer/Boot/App READMEs in English with the corresponding F13
+reader structure, using actual F24 values and existing public guide anchors.
+Covered checkout dependencies, IRQ/metadata/layout, runtime/ENTER, PowerShell
+build and retained versus regenerated artifacts. Kept TAU0/2E, RFD, FF71C
+request and no advertised Boot VERIFY; normal update accepted, fault scopes
+separate. Five read-only Tool README checks PASS. No source/project/firmware
+changes or rebuild, hardware operation or commit/push.
+
+## Git publication local-data exclusion (2026-10-19)
+
+Initial commit tracked15 tmp build/test outputs. With user approval these
+paths are removed only from the index, preserving every local SHA256; their
+staged deletions intentionally await the next publication commit. .gitignore
+now excludes tmp, CS+ local state and DefaultBuild except boot0000_1FFF.hex.
+Transfer/App have matching project-specific ignore files. Four index-only
+deletions from the interrupted publisher were cleared after validating HEAD
+against archived blobs; actual outputs remain in Tool's recoverable archive.
+Three index backups are under Tool tmp/internal/github_repair. Eight release
+deliveries and actual HEADs unchanged. Tool read-only six-repo preview PASS;
+no commit/push/history rewrite, firmware rebuild or hardware operation.
+
 ## Normal App1.0.3 hardware acceptance (2026-10-19)
 
 User JSON/HTML update_20261019_044520 confirms4224B/CRCCF1C72F8,66blocks,

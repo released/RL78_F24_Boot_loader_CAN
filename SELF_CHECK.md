@@ -1,5 +1,21 @@
 # Verification gates
 
+## English README structure (2026-10-19)
+
+- [x] Transfer/Boot/App entry points English, aligned with F13 organization
+  and independently checked against F24 sources, artifacts and web anchors.
+- [x] Five read-only README tests PASS; no source/binary/build/hardware change.
+
+## Publication data exclusion (2026-10-19)
+
+- [x] User-approved removal of15 tmp paths from Git index; all local files
+  remain with identical SHA256. Project-specific .gitignore added to all
+  three F24 projects; eight release deliveries and actual HEADs unchanged.
+- [x] Script-owned staged output removals cleared selectively with backed-up
+  indices; files remain in the original recoverable publication archive.
+- [x] Six-repo read-only preview PASS; pending tmp removals accepted without
+  accepting pre-staged source changes. No commit/push or hardware operation.
+
 ## User normal App update acceptance (2026-10-19)
 
 - [x] App1.0.3/4224B/CRCCF1C72F8 normal500K update,66blocks,END/CRC,

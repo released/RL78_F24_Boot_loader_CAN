@@ -1,100 +1,196 @@
-# RL78/F24 MCU CAN device Boot
+# RL78/F24 CAN boot loader
 
-此工程提供 Classical CAN 更新、App 驗證與完整普通中斷轉送。
-`RL78_F24_CAN_Transfer`、`RL78_F24_Boot_loader_CAN` 與 `RL78_F24_Boot_loader_CAN_app` 是三個獨立專案，放在同一父目錄。
+CAN self-programming boot loader for Renesas RL78/F24 R7F124FPJ5xFB.
 
-## 硬體與分區
+Start with the [Boot/App porting guide (zh-TW)](https://released.github.io/slide_boot_loader_for_RL78/#boot-app-porting)
+and [C-header device workshop](https://released.github.io/slide_boot_loader_for_RL78/#device-metadata-vector-workshop)
+for startup, linker, metadata and App IRQ authoring.
 
-| 項目 | 設定 |
+## Fixed reusable IRQ contract
+
+Boot owns all 61 normal physical vectors `0x04..0x7C` through generated
+assembly. Owner `0xAA` selects Boot handlers; `0x55` forwards to the fixed
+App table. Reset stays in Boot; physical BRK `0x7E` is not forwarded.
+
+The timer uses TAU0 channel 1, vector `0x2E` (`INTTM01`).
+Compatible App projects add ISRs in their own `app_irq_handlers.h` and CS+
+source list, then rebuild/update App only. Each ISR is global, uses
+`#pragma interrupt` without `vect=` and returns RETI. Boot/App are separate
+links, so both can use `Device_TimerIsr` as a function name.
+
+Compatibility includes MCU/Flash, IRQ ABI, no-init RAM/startup, metadata/CRC
+and CAN INFO/ENTER behavior. Unused interrupt sources stay masked; default
+RETI does not acknowledge their causes. See [interrupt ownership](https://released.github.io/slide_boot_loader_for_RL78/#device-irq-ownership).
+
+## Status
+
+Normal Classical 500K update, END CRC, post-reset APP_READY/live identity and
+the App UART counter are verified. See the [update result and UART captures](https://released.github.io/slide_isp_tool_for_RL78/#f24-device-update-example).
+Other rates, additional IRQs, stress, cancellation, disconnect and power loss
+have separate acceptance records.
+
+Boot UART defaults off (`CAN_BOOT_DEBUG_UART=0U`). Compact metadata diagnostics
+default to `BAD_IMAGE` (`IMAGE_METADATA_DETAILED_STATUS=0U`), retaining all
+validation checks. Optional diagnostic controls depend on live capabilities;
+this Boot does not advertise read-only VERIFY. App supplies APP_READY after
+initialization and an observed timer IRQ.
+
+## Public examples and checkout layout
+
+- [CAN Transfer benchmark](https://github.com/released/RL78_F24_CAN_Transfer).
+- [This Boot project](https://github.com/released/RL78_F24_Boot_loader_CAN).
+- [Matching App project](https://github.com/released/RL78_F24_Boot_loader_CAN_app).
+- [Tool operation](https://released.github.io/slide_isp_tool_for_RL78/#mcu-can-device).
+
+Keep all three checkouts under the same parent using their exact names;
+remove `-main` after ZIP extraction. Transfer/App use their own SC output
+and this Boot project `common/` board sources and `tools/` helpers.
+App also shares the image/CAN/RAM contracts.
+
+Build Boot before App for an initial combined `boot_app.hex`.
+A compatible App-only release does not rebuild Boot. Boot MOT/map are needed
+when refreshing the combined installation image, not for App-only packaging.
+
+## Hardware and CAN settings
+
+| Item | Setting |
 | --- | --- |
-| MCU | R7F124FPJ5xFB，256 KiB Flash／24 KiB RAM |
-| Clock | X1 4 MHz → PLL 80 MHz → CPU／CAN 40 MHz |
-| CAN | P10 TX／P11 RX／P12 STB LOW；Classical 500 kbit/s |
-| Upgrade IDs | Standard request 0x700／response 0x701；raw 0x720..0x727 |
-| Transfer IDs | Standard request 0x710／response 0x711 |
-| 診斷 UART | Transfer／App：P15 TX／P16 RX，115200 |
-| 板上操作 | SW1 P137 LOW 進 Boot；LED P66／P67 active LOW |
-| Image contract | Target 0xF24B、IRQ ABI F2V1、protocol 5／image format 6 |
+| MCU | R7F124FPJ5xFB; 256 KiB code flash, 24 KiB RAM |
+| Clock | X1 4 MHz -> PLL 80 MHz -> CPU/CAN 40 MHz |
+| CAN | Classical, standard 11-bit IDs, 500 kbit/s |
+| Timing | BRP register 3; 20 TQ; TSEG1=15, TSEG2=4, SJW=1; sample point 80% |
+| Pins | P10 TX / P11 RX; P12 LOW for normal transceiver operation |
+| Update IDs | Request `0x700` / response `0x701`; raw data `0x720..0x727` |
+| Image contract | Target `0xF24B`, IRQ ABI F2V1, CAN protocol 5, image format 6 |
+| Debug UART0 | Transfer/App: 115200 8-N-1, P15 TX / P16 RX |
+| Recovery input | SW1 on P137, active LOW |
+| LEDs | P66 / P67, active LOW |
 
-| Flash／RAM address | 用途 |
+Board reference: [RL78/F24 Target Board](https://www.renesas.com/en/products/microcontrollers-microprocessors/rl78-low-power-8-16-bit-mcus/rtk7f124fpc01000bj-rl78f24-r7f124fpj-target-board).
+Verify transceiver supply/standby, common ground and termination.
+A logged P12 state is not a supply-voltage measurement.
+
+CAN processing polls FIFO/TX results; the interval timer has a live ISR.
+`common/f24_device_config.h` is the compiler preinclude for clock/timing
+overrides. `can_boot_config.h` owns protocol IDs, rate declarations and filters.
+For 250K/500K/1M, follow the [device bitrate procedure](https://released.github.io/slide_boot_loader_for_RL78/#device-can-bitrate),
+rebuild and install the matching Boot/App. The Tool dropdown does not
+reconfigure device firmware.
+
+## Memory layout and metadata
+
+| Range | Purpose |
 | --- | --- |
-| 0x00000..0x01FFF | 8 KiB Boot、實體向量與 option bytes |
-| 0x02000..0x020FF | App 64 組 4-byte BR 表 |
-| 0x02100..0x0217F | 128-byte metadata core |
-| 0x02180..0x021FF | 128-byte metadata reserved FF |
-| 0x02200 起 | App startup／code／constants |
-| App start + image size - 4 | 全映像 CRC32，排除此末端 4 bytes |
-| 0x3FC00..0x3FFFF | 保護區，不納入 App 更新 |
-| 0xFF710..0xFF71F RAM | no-init handoff；IRQ owner Boot=AA／App=55 |
+| `0x00000..0x01FFF` | 8 KiB Boot, physical vectors and option bytes |
+| `0x02000..0x020FF` | 64 four-byte App branch entries |
+| `0x02100..0x0217F` | 128-byte metadata core |
+| `0x02180..0x021FF` | 128 reserved bytes, `0xFF` |
+| `0x02200..linked end` | App startup/code/constants |
+| Final four image bytes | Little-endian CRC32, excluded from its calculation |
+| `0x3FC00..0x3FFFF` | Protected last 1 KiB, outside the update range |
+| `0xFF710..0xFF71F` RAM | No-init owner and one-shot handoff/update/ENTER signatures |
 
-分區、metadata 格式、MCU 身分、IRQ ABI、政策與 Boot 版本集中於 `image_metadata_config.h`。
-CAN 設定位於 `can_boot_config.h`，共用 RAM／owner 位於 `boot_app_handoff.h`。
-執行時解析／驗證使用獨立 `image_metadata.c/.h`，比對值由 `image_metadata_profile.c` 提供。
-Boot／App 各自編譯共用來源；API 與移植條件見 [Metadata C 模組](https://released.github.io/slide_boot_loader_for_RL78/#device-metadata-parser)。
-產生器讀取三份明確來源，不重複維護 CAN ID／速率；詳細設定分工見 [Device 設定](https://released.github.io/slide_boot_loader_for_RL78/#device-app-config)。
-最大 App 容量為 252928 bytes；實際 BIN 長度由 map 決定。
-封裝檢查保留至少 512 bytes Boot 餘裕，並核對完整向量表、metadata、RAM RFD 執行鏈及 Flash 範圍。
+App capacity is `0x3DC00` (252928) bytes, not a required length. Packaging
+derives the four-byte-aligned image length from linked sections and appends
+CRC32. Boot packaging enforces 8 KiB and at least 512 bytes of unused space.
 
-線路資料：[RL78/F24 Target Board](https://www.renesas.com/en/products/microcontrollers-microprocessors/rl78-low-power-8-16-bit-mcus/rtk7f124fpc01000bj-rl78f24-r7f124fpj-target-board)。
-接線時依實際 transceiver 規格確認供電／standby，並核對共地、終端與 bitrate。
+| File | Ownership |
+| --- | --- |
+| `image_metadata_config.h` | Format, MCU/Flash, policy, IRQ ABI and Boot identity |
+| `can_boot_config.h` | CAN routing, compiled rate declarations and protocol |
+| `boot_app_handoff.h` | No-init RAM, owner and signatures |
+| App `app_image_config.h` | App release identity and version policy |
+| App `app_irq_handlers.h` | App-local physical-vector-to-ISR mapping |
 
-## PowerShell 建置
+`image_metadata.c/.h` is independently compiled for metadata decode/validation;
+`image_metadata_profile.c` provides expected fields. CAN staging and Flash
+operations remain separate. See [metadata APIs](https://released.github.io/slide_boot_loader_for_RL78/#device-metadata-parser)
+and the [byte/address reference](https://released.github.io/slide_boot_loader_for_RL78/#flash-metadata-can-reference).
 
-使用 Windows PowerShell 5.1／.NET 與 CS+ CC-RL，不需另外安裝腳本執行環境。
-在 Boot 專案目錄執行：
+## Boot decision
+
+After board initialization, Boot validates metadata, all 64 branch entries
+and CRC32 over the declared image except its trailer. Branches must target
+code inside the image. App starts only when these checks pass and neither
+the ENTER signature nor active SW1 requests Boot.
+
+Invalid images, SW1 and App ENTER retain Boot. Clock failure blocks
+progression; CAN initialization failure in recovery prevents programming.
+ENTER from a valid App enables 30-second inactivity before accepted START.
+Accepted request traffic refreshes the timer; expiry revalidates App before
+returning. Invalid-App recovery and entry only through SW1 do not enable it.
+
+After accepted START, timeout, ABORT or fatal update errors retain Boot.
+Successful END validates metadata/CRC, records update provenance and resets.
+Reset repeats installed-image checks before handoff. The
+[device Boot flow](https://released.github.io/slide_boot_loader_for_RL78/#f24-can-device)
+contains the full gate/timeout details.
+
+CAN v5 stages all 256 metadata bytes in RAM: RESET `0x0A`, ordered METADATA
+`0x08` chunks and SEAL `0x09` before START. Data uses 64-byte blocks: BEGIN
+`0x0B`, raw frames on `0x720..0x727`, COMMIT `0x0C` and one ACK.
+CRC/sequence checks precede writes; replaying the last committed block does
+not rewrite Flash. See the [CAN update walkthrough](https://released.github.io/slide_isp_tool_for_RL78/#can-update-walkthrough).
+
+## Build and artifacts
+
+Use Windows PowerShell 5.1/.NET and CS+/CC-RL, without Python or SRecord.
+Run from this Boot directory:
 
 ```powershell
-# Transfer、Boot、App clean rebuild
 .\build.ps1 -Kind all
-# 只建置 App
-.\build.ps1 -Kind app
-# 離線 artifact／metadata／IRQ／ROM／RAM 檢查
+# Boot only; use -Kind app for an App-only release.
+.\build.ps1 -Kind boot
 .\test.ps1
-# 可選：加入 production C 模型及 Tool BIN parser；需 MSVC x64
-.\test.ps1 -ToolProject <Tool repository>
-# 可選：Transfer 錯誤擷取與通訊模型；需 MSVC x64
-.\test.ps1 -TransferModels
 ```
 
-CS+ pre-build 呼叫 `tools/prepare_projects.ps1`，post-build 呼叫 `tools/package_images.ps1`。
-App 編輯 `app_image_config.h` 與 `app_irq_handlers.h`；產生器輸出 metadata INC／ASM wrapper、identity 與向量表。
-生成檔可檢查，不作為手動編輯入口。
+The helper prepares projects, invokes clean builds, checks the CS+ summary
+and packages outputs. CS+ pre/post-build hooks run `tools/prepare_projects.ps1`
+and `tools/package_images.ps1`. After SC regeneration, reconcile the selected
+project before building; normal App work uses `-Kind app` to preserve Boot.
 
-SC 重新產生後，執行 `tools/prepare_projects.ps1 -Kind all` 整理專案再建置；
-一般 App 更新使用 `-Kind app`，保留 Boot。
-完整編輯、來源登錄、IRQ hex 位址出處及驗證步驟見
-[MCU CAN device Metadata／Vector 設定](https://released.github.io/slide_boot_loader_for_RL78/#device-metadata-vector-workshop)。
-
-## 安裝與更新
-
-| 產物 | 使用方式 |
+| File | Purpose |
 | --- | --- |
-| Transfer `<project>.hex` | 燒錄器安裝獨立通訊測試工程，Tool 選 Custom Transfer |
-| Boot `boot0000_1FFF.hex` | 燒錄器初裝 Boot |
-| App `flash_app_variable_CRC.hex` | 燒錄器初裝 App，已填入 metadata／CRC |
-| App 根目錄 `boot_app.hex` | 合併 Boot 與 App 的初裝映像 |
-| App `*_update.bin` | Tool CAN TAB 更新 App |
-| App `DefaultBuild/app_build_report.html` | 瀏覽器核對實際 BIN metadata、CRC／SHA-256、位址與向量表 |
+| `DefaultBuild/boot0000_1FFF.hex` | Programmer-installed Boot-only image |
+| `DefaultBuild/RL78_F24_Boot_loader_CAN.mot` / `.map` | Local compiler/section/RFD checks and combined-image input |
+| App root `boot_app.hex` | Initial combined Boot/App installation |
+| App `DefaultBuild/RL78_F24_Boot_loader_CAN_app_update.bin` | Tool CAN App update |
 
-初裝使用 Boot HEX 與 App HEX。
-原始 App MOT 含 device file 自動附入的實體記錄，封裝程式會將其排除。
-更新操作見 [CAN device App 更新](https://released.github.io/slide_isp_tool_for_RL78/#mcu-can-device)。
+Git distribution retains only the Boot HEX in DefaultBuild; `tmp/` logs/tests
+remain local. [Publication](https://github.com/released/simple_renesas_isp_tool/blob/main/docs/GITHUB_PUBLISH_zh-TW.md)
+archives other outputs. Rebuild after pruning before artifact tests or
+combined-image regeneration.
 
-Boot 重置後驗證 metadata、全部 BR entries 與全映像 CRC。
-一般中斷經固定完整轉送介面進 App；App 新增 ISR 時，登錄該 App 的來源與 C header，再單獨建置 App。
+## Recovery and limitations
 
-## 驗證範圍
+- The F24 RFD library executes the required programming code from RAM;
+  packaging verifies its execution/reference ranges.
+- Updates exclude Boot and the last 1 KiB. An App erase block is 1 KiB.
+- CRC32 detects corruption, not authenticity. Signatures, encryption and a
+  second-image rollback bank are not provided.
+- The valid installed App controls normal version ordering:
+  `APP_IMAGE_VERSION_CONTROL=0U` permits any version; `1U` permits same/newer.
+  Compare App major/minor/patch, not build date or Boot version. Invalid-App
+  recovery has no independent persistent version floor.
+- Intentional downgrade uses the [single-update maintenance operation](https://released.github.io/slide_isp_tool_for_RL78/#force-old-version);
+  other identity/policy/partition/IRQ/CRC gates remain active.
+- Integrated debug testing starts from reset through Boot. Retain physical
+  vectors/option bytes when loading App symbols. Build/model results and
+  normal update evidence do not establish every debugger, IRQ or power test.
 
-`app_image_config.h` 的 `APP_IMAGE_VERSION_CONTROL` 預設為 `0U`，允許任意 App 版本。
-有效 App 設為 `1U` 時，一般更新接受同版／新版；只比較 App major／minor／patch。
-Boot 版本與 App 版本各自獨立，App 最低 Boot 版本由配對契約產生。
-設定與產物見 [Device 設定](https://released.github.io/slide_boot_loader_for_RL78/#device-app-config)，
-單次降版操作見 [Tool 版本政策](https://released.github.io/slide_isp_tool_for_RL78/#force-old-version)。
+## Main files
 
-三個專案的 clean rebuild、封裝與離線模型已檢查。
-500K 正常 App 更新、END CRC、reset 後 APP_READY／live INFO 與 UART counter 已完成實板驗證，
-操作與 F13 device 相同；報告及畫面見 [F24 device 更新結果](https://released.github.io/slide_isp_tool_for_RL78/#f24-device-update-example)。
-其他速率、IRQ、取消及斷電復原依各條件分別驗證。
-CAN 速率修改見 [Device CAN 速率配置](https://released.github.io/slide_boot_loader_for_RL78/#device-can-bitrate)，
-Boot／App 同名 ISR 與向量轉送見 [中斷所有權](https://released.github.io/slide_boot_loader_for_RL78/#device-irq-ownership)。
-量測、編譯器警告及實際測試結果保留於 `HANDOFF.md`。
+| File | Responsibility |
+| --- | --- |
+| `boot_main.c` | Installed-image gates, recovery and handoff |
+| `can_boot_transport.c` / `can_boot_block.inc` | CAN staging and block state machine |
+| `image_metadata.c` / `.h` / `image_metadata_profile.c` | Independent metadata validator and expected fields |
+| `image_metadata_config.h` / `can_boot_config.h` / `boot_app_handoff.h` | Image, CAN and RAM contracts |
+| `common/device_board.c` / `common/device_can.c` / `common/f24_clock.c` | Board, timer, CAN polling and bounded clock setup |
+| `f24_flash.c` / `RFDRL78T02/` | Flash wrapper and RFD library |
+| `sw_crc32.c` / `.h` | Full-image CRC32 |
+| `tools/prepare_projects.ps1` / `tools/package_images.ps1` | Project/vector generation and packaging |
+
+Measurements and compiler warnings are in `HANDOFF.md`. The
+[acceptance matrix](https://released.github.io/slide_isp_tool_for_RL78/#update-confirmation)
+separates normal update evidence from high-rate and fault testing.
