@@ -1,5 +1,18 @@
 # F24 MCU CAN device handoff
 
+## Linear CRC Flash traversal (2026-10-22)
+
+sw_crc32.c matches F13/Classical/FD:integer-address increment before far cast
+preserves carry across64KiB. CRC polynomial/range/trailer,Flash/IRQ/protocol
+contracts unchanged. Boot1.1.1/build20261022 clean0errors/2existing warnings,
+end1DFF/spare512;App clean0/5,4224bytes/CRC4837111E. App identity unchanged;
+generated minimumBoot follows the paired release. Combined images refreshed.
+Native109CRC checks,strict-C90 target carry and rejected unsafe-pointer
+mutation PASS;9artifact/negative tests and actual Tool/parser/RAM models PASS.
+Larger first candidates failed the unchanged512-byte guard;final kernel fits.
+No Transfer/host/Tool runtime rebuild or physical Flash/COM test. Timing BINs
+unchanged;MD/web/PDF synchronization recorded in Tool HANDOFF.
+
 ## English README entry points (2026-10-19)
 
 Reorganized Transfer/Boot/App READMEs in English with the corresponding F13

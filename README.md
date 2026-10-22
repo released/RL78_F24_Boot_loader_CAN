@@ -163,6 +163,10 @@ combined-image regeneration.
 
 ## Recovery and limitations
 
+Full-image CRC reads use 32-bit byte-address arithmetic across 64 KiB Flash
+boundaries. See the [CRC address reference](https://released.github.io/slide_boot_loader_for_RL78/#image-crc-linear-address)
+for image ranges, trailer addresses and porting checks.
+
 - The F24 RFD library executes the required programming code from RAM;
   packaging verifies its execution/reference ranges.
 - Updates exclude Boot and the last 1 KiB. An App erase block is 1 KiB.

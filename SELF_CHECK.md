@@ -1,5 +1,13 @@
 # Verification gates
 
+## CRC64KiB address carry (2026-10-22)
+
+- [x] CRC sources identical across three devices;integer carry,unchanged CRC.
+- [x]109native boundary/BIN checks,target carry/reload and unsafe mutation gate.
+- [x] Boot/App clean0errors;spare512;9artifact/negative checks and actual PC/
+  parser/RAM models PASS. Generated minimum-Boot/CRC/combined images updated.
+- [ ] Physical cross64KiB Flash update/reset/APP_READY NOT RUN.
+
 ## English README structure (2026-10-19)
 
 - [x] Transfer/Boot/App entry points English, aligned with F13 organization
