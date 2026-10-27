@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'device_common.ps1')
 
 function Get-AppSources([string]$Folder) {
-    $paths=@((Join-Path $Folder 'app_main.c'))+@(Get-ChildItem -LiteralPath (Join-Path $script:DeviceBoot 'common') -Filter '*.c' -File | ForEach-Object FullName)
+    $paths=@((Join-Path $Folder 'custom_func.c'))+@(Get-ChildItem -LiteralPath (Join-Path $script:DeviceBoot 'common') -Filter '*.c' -File | ForEach-Object FullName)
     [xml]$xml=[IO.File]::ReadAllText((Get-DeviceProjectFile $Folder))
     foreach($node in $xml.SelectNodes('//Instance[Type="File"]')){
         $raw=[string]$node.RelativePath
@@ -103,10 +103,10 @@ function Prepare-DeviceProject([string]$ImageKind,[string]$Folder) {
     $vectors=Get-DeviceVectors $ImageKind $Folder
     $own=switch($ImageKind){
         app {Get-AppSources $Folder}
-        boot {@('boot_main.c','can_boot_transport.c','sw_crc32.c','f24_flash.c') | ForEach-Object {Join-Path $Folder $_}}
-        transfer {@('transfer_main.c','can_transfer_protocol.c') | ForEach-Object {Join-Path $Folder $_}}
+        boot {@('custom_func.c','can_boot_transport.c','sw_crc32.c','f24_flash.c') | ForEach-Object {Join-Path $Folder $_}}
+        transfer {@('custom_func.c','can_transfer_protocol.c') | ForEach-Object {Join-Path $Folder $_}}
     }
-    $sources=@($own)+@(Get-ChildItem -LiteralPath (Join-Path $script:DeviceBoot 'common') -Filter '*.c' -File | ForEach-Object FullName)
+    $sources=@((Join-Path $Folder 'main.c'))+@($own)+@(Get-ChildItem -LiteralPath (Join-Path $script:DeviceBoot 'common') -Filter '*.c' -File | ForEach-Object FullName)
     if($ImageKind -in @('boot','app')){
         $sources+=@('image_metadata.c','image_metadata_profile.c') |
             ForEach-Object {Join-Path $script:DeviceBoot $_}

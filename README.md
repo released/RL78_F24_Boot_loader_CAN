@@ -186,7 +186,7 @@ for image ranges, trailer addresses and porting checks.
 
 | File | Responsibility |
 | --- | --- |
-| `boot_main.c` | Installed-image gates, recovery and handoff |
+| `custom_func.c` | Installed-image gates, recovery and handoff |
 | `can_boot_transport.c` / `can_boot_block.inc` | CAN staging and block state machine |
 | `image_metadata.c` / `.h` / `image_metadata_profile.c` | Independent metadata validator and expected fields |
 | `image_metadata_config.h` / `can_boot_config.h` / `boot_app_handoff.h` | Image, CAN and RAM contracts |
@@ -198,3 +198,12 @@ for image ranges, trailer addresses and porting checks.
 Measurements and compiler warnings are in `HANDOFF.md`. The
 [acceptance matrix](https://released.github.io/slide_isp_tool_for_RL78/#update-confirmation)
 separates normal update evidence from high-rate and fault testing.
+
+## User code entry
+
+`custom_func.c` provides `hardware_init()` for initialization and `loop()` for
+foreground service. Add application initialization and foreground work through
+these callbacks, retaining the existing communication service calls.
+The selected main/startup adapter owns entry and handoff. Generated peripheral
+files remain under `src/`; retain the project's MTPJ source selection when using
+Code Generator or Smart Configurator, then rebuild to validate the image and vectors.
