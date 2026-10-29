@@ -1,3 +1,8 @@
+/* Project/API reading notes: Device-facing CAN adapter.
+ * Return complete frames with their physical channel, preserve bounded receive/diagnostic
+ * handling and report real TX completion.
+ * Boot/App/Transfer protocol work remains in foreground code.
+ */
 #include "platform.h"
 #include "device_board.h"
 #include "r_rscanfd_rl78_if.h"

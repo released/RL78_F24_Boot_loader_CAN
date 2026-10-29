@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include "platform.h"
 #define F24_DEVICE_TRANSFER
-#include "../../common/device_can.c"
-#include "../../../RL78_F24_CAN_Transfer/can_transfer_config.h"
+#include "device_can.c"
+#include "can_transfer_config.h"
 #ifdef TRANSFER_TEST_NO_TRACE
 #undef CAN_TRANSFER_UART_TRACE_ENABLE
 #define CAN_TRANSFER_UART_TRACE_ENABLE (0U)
 #endif
-#include "../../../RL78_F24_CAN_Transfer/can_transfer_protocol.c"
+#include "can_transfer_protocol.c"
 
 volatile test_rules_t CAN_RXRULE_SFR;
 volatile test_ram_t CAN_RAM_MSG_SFR;

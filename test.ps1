@@ -14,7 +14,7 @@ $output=Join-Path $PSScriptRoot 'tmp\tests'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $arguments=@('/nologo','/std:c++17','/W4','/WX','/EHsc',('/I'+$PSScriptRoot),('/Fe'+(Join-Path $output 'device_contract_tests.exe')))
 $sources=@((Join-Path $PSScriptRoot 'tools\tests\device_contract_tests.cpp'),
-    (Join-Path $PSScriptRoot 'image_metadata.c'),(Join-Path $PSScriptRoot 'image_metadata_profile.c'))
+    (Join-Path $PSScriptRoot 'hal\image\image_metadata.c'),(Join-Path $PSScriptRoot 'hal\image\image_metadata_profile.c'))
 if($ToolProject){
     $core=Join-Path (Resolve-Path -LiteralPath $ToolProject).Path 'src\core'
     $arguments+=@('/DF24_TEST_TOOL',('/I'+$core))
@@ -24,6 +24,6 @@ Push-Location -LiteralPath $output
 try {
     & cl @arguments @sources
     if($LASTEXITCODE -ne 0){throw 'C/C++ RAM helper test build failed.'}
-    & (Join-Path $output 'device_contract_tests.exe') (Join-Path $PSScriptRoot '..\RL78_F24_Boot_loader_CAN_app\DefaultBuild\RL78_F24_Boot_loader_CAN_app_update.bin')
+    & (Join-Path $output 'device_contract_tests.exe') (Join-Path $PSScriptRoot 'DefaultBuild\RL78_F24_Boot_loader_CAN_app_update.bin')
     if($LASTEXITCODE -ne 0){throw 'C/C++ RAM helper tests failed.'}
 } finally { Pop-Location }

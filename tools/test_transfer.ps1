@@ -15,7 +15,7 @@ Push-Location -LiteralPath $output
 try {
     foreach($trace in @(1,0)) {
         $arguments=@('/nologo','/TC','/Za','/W4','/WX',('/I'+(Join-Path $PSScriptRoot 'tests\transfer_mock')),
-            ('/I'+(Join-Path $boot 'common')),('/I'+$boot),('/I'+$app),
+            ('/I'+(Join-Path $boot 'hal\device')),('/I'+$boot),('/I'+$app),
             (Join-Path $PSScriptRoot 'tests\transfer_diagnostics_tests.c'),('/Fe:transfer_trace'+$trace+'.exe'))
         if(!$trace){$arguments+='/DTRANSFER_TEST_NO_TRACE'}
         & cl @arguments

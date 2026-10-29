@@ -25,7 +25,7 @@ RETI does not acknowledge their causes. See [interrupt ownership](https://releas
 ## Status
 
 Normal Classical 500K update, END CRC, post-reset APP_READY/live identity and
-the App UART counter are verified. See the [update result and UART captures](https://released.github.io/slide_isp_tool_for_RL78/#f24-device-update-example).
+the App UART counter are verified. See the [update result and UART captures](https://released.github.io/slide_simple_renesas_isp_tool/#f24-device-update-example).
 Other rates, additional IRQs, stress, cancellation, disconnect and power loss
 have separate acceptance records.
 
@@ -40,12 +40,9 @@ initialization and an observed timer IRQ.
 - [CAN Transfer benchmark](https://github.com/released/RL78_F24_CAN_Transfer).
 - [This Boot project](https://github.com/released/RL78_F24_Boot_loader_CAN).
 - [Matching App project](https://github.com/released/RL78_F24_Boot_loader_CAN_app).
-- [Tool operation](https://released.github.io/slide_isp_tool_for_RL78/#mcu-can-device).
+- [Tool operation](https://released.github.io/slide_simple_renesas_isp_tool/#mcu-can-device).
 
-Keep all three checkouts under the same parent using their exact names;
-remove `-main` after ZIP extraction. Transfer/App use their own SC output
-and this Boot project `common/` board sources and `tools/` helpers.
-App also shares the image/CAN/RAM contracts.
+Each project owns its local HAL APIs, configuration and build helpers.
 
 Build Boot before App for an initial combined `boot_app.hex`.
 A compatible App-only release does not rebuild Boot. Boot MOT/map are needed
@@ -71,7 +68,7 @@ Verify transceiver supply/standby, common ground and termination.
 A logged P12 state is not a supply-voltage measurement.
 
 CAN processing polls FIFO/TX results; the interval timer has a live ISR.
-`common/f24_device_config.h` is the compiler preinclude for clock/timing
+`hal/device/f24_device_config.h` is the compiler preinclude for clock/timing
 overrides. `can_boot_config.h` owns protocol IDs, rate declarations and filters.
 For 250K/500K/1M, follow the [device bitrate procedure](https://released.github.io/slide_boot_loader_for_RL78/#device-can-bitrate),
 rebuild and install the matching Boot/App. The Tool dropdown does not
@@ -130,7 +127,7 @@ CAN v5 stages all 256 metadata bytes in RAM: RESET `0x0A`, ordered METADATA
 `0x08` chunks and SEAL `0x09` before START. Data uses 64-byte blocks: BEGIN
 `0x0B`, raw frames on `0x720..0x727`, COMMIT `0x0C` and one ACK.
 CRC/sequence checks precede writes; replaying the last committed block does
-not rewrite Flash. See the [CAN update walkthrough](https://released.github.io/slide_isp_tool_for_RL78/#can-update-walkthrough).
+not rewrite Flash. See the [CAN update walkthrough](https://released.github.io/slide_simple_renesas_isp_tool/#can-update-walkthrough).
 
 ## Build and artifacts
 
@@ -138,10 +135,7 @@ Use Windows PowerShell 5.1/.NET and CS+/CC-RL, without Python or SRecord.
 Run from this Boot directory:
 
 ```powershell
-.\build.ps1 -Kind all
-# Boot only; use -Kind app for an App-only release.
-.\build.ps1 -Kind boot
-.\test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .uild.ps1
 ```
 
 The helper prepares projects, invokes clean builds, checks the CS+ summary
@@ -176,7 +170,7 @@ for image ranges, trailer addresses and porting checks.
   `APP_IMAGE_VERSION_CONTROL=0U` permits any version; `1U` permits same/newer.
   Compare App major/minor/patch, not build date or Boot version. Invalid-App
   recovery has no independent persistent version floor.
-- Intentional downgrade uses the [single-update maintenance operation](https://released.github.io/slide_isp_tool_for_RL78/#force-old-version);
+- Intentional downgrade uses the [single-update maintenance operation](https://released.github.io/slide_simple_renesas_isp_tool/#force-old-version);
   other identity/policy/partition/IRQ/CRC gates remain active.
 - Integrated debug testing starts from reset through Boot. Retain physical
   vectors/option bytes when loading App symbols. Build/model results and
@@ -190,13 +184,13 @@ for image ranges, trailer addresses and porting checks.
 | `can_boot_transport.c` / `can_boot_block.inc` | CAN staging and block state machine |
 | `image_metadata.c` / `.h` / `image_metadata_profile.c` | Independent metadata validator and expected fields |
 | `image_metadata_config.h` / `can_boot_config.h` / `boot_app_handoff.h` | Image, CAN and RAM contracts |
-| `common/device_board.c` / `common/device_can.c` / `common/f24_clock.c` | Board, timer, CAN polling and bounded clock setup |
+| `hal/device/device_board.c` / `hal/can/device_can.c` / `hal/device/f24_clock.c` | Board, timer, CAN polling and bounded clock setup |
 | `f24_flash.c` / `RFDRL78T02/` | Flash wrapper and RFD library |
 | `sw_crc32.c` / `.h` | Full-image CRC32 |
 | `tools/prepare_projects.ps1` / `tools/package_images.ps1` | Project/vector generation and packaging |
 
 Measurements and compiler warnings are in `HANDOFF.md`. The
-[acceptance matrix](https://released.github.io/slide_isp_tool_for_RL78/#update-confirmation)
+[acceptance matrix](https://released.github.io/slide_simple_renesas_isp_tool/#update-confirmation)
 separates normal update evidence from high-rate and fault testing.
 
 ## User code entry
@@ -207,3 +201,36 @@ these callbacks, retaining the existing communication service calls.
 The selected main/startup adapter owns entry and handoff. Generated peripheral
 files remain under `src/`; retain the project's MTPJ source selection when using
 Code Generator or Smart Configurator, then rebuild to validate the image and vectors.
+
+## Project layout and standalone build
+
+This project includes its own source files, configuration headers and build tools.
+A sibling Boot, App or Transfer checkout is not required to compile it.
+Keep the project directory name aligned with its `.mtpj` filename; remove a ZIP download suffix when necessary.
+Build with CS+ Rebuild, or run the local PowerShell entry:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+| Location | Responsibility |
+| --- | --- |
+| `custom_func.c` | Project initialization in `hardware_init()` and recurring work in `loop()`; runtime orchestration stays here |
+| `hal/can` | CAN service, controller driver and CAN adapter, when used by this project |
+| `hal/device` | Device, clock, peripheral and CPU handoff APIs |
+| `hal/image` | Metadata parser/profile, image validation and software CRC |
+| `hal/flash` | Flash access/geometry APIs, when required by the selected image |
+| `hal/isp` | Update/Transfer protocol and transport processing APIs |
+| Root configuration headers | Local MCU/Flash, handoff and communication contract |
+| `tools` and root PowerShell helpers | Local metadata/IRQ generation and linked-image checks |
+| `src` | Code Generator or Smart Configurator peripheral sources |
+
+Only the sources registered in this project's CS+ configuration are linked.
+Generated main/vector implementations must not become a second active entry.
+Retain the `custom_func.c` callbacks and the selected startup adapter after code generation.
+
+Boot and App each carry a local contract. Keep their MCU, Flash layout, image format,
+IRQ ABI, handoff and communication settings compatible when installing a pair.
+App releases are edited in `app_image_config.h` and `app_irq_handlers.h` in the App project.
+Rebuild the selected App to regenerate its metadata, vector table, update BIN and timing BINs.
+The App build does not read or rewrite a Boot checkout.
