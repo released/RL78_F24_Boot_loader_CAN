@@ -22,7 +22,7 @@ Compatibility includes MCU/Flash, IRQ ABI, no-init RAM/startup, metadata/CRC
 and CAN INFO/ENTER behavior. Unused interrupt sources stay masked; default
 RETI does not acknowledge their causes. See [interrupt ownership](https://released.github.io/slide_boot_loader_for_RL78/#device-irq-ownership).
 
-## Status
+## Supported configuration
 
 Normal Classical 500K update, END CRC, post-reset APP_READY/live identity and
 the App UART counter are verified. See the [update result and UART captures](https://released.github.io/slide_simple_renesas_isp_tool/#f24-device-update-example).
@@ -181,15 +181,15 @@ for image ranges, trailer addresses and porting checks.
 | File | Responsibility |
 | --- | --- |
 | `custom_func.c` | Installed-image gates, recovery and handoff |
-| `can_boot_transport.c` / `can_boot_block.inc` | CAN staging and block state machine |
-| `image_metadata.c` / `.h` / `image_metadata_profile.c` | Independent metadata validator and expected fields |
+| `hal/isp/can_boot_transport.c` / `can_boot_block.inc` | CAN staging and block state machine |
+| `hal/image/image_metadata.c` / `.h` / `hal/image/image_metadata_profile.c` | Independent metadata validator and expected fields |
 | `image_metadata_config.h` / `can_boot_config.h` / `boot_app_handoff.h` | Image, CAN and RAM contracts |
 | `hal/device/device_board.c` / `hal/can/device_can.c` / `hal/device/f24_clock.c` | Board, timer, CAN polling and bounded clock setup |
-| `f24_flash.c` / `RFDRL78T02/` | Flash wrapper and RFD library |
-| `sw_crc32.c` / `.h` | Full-image CRC32 |
+| `hal/flash/f24_flash.c` / `RFDRL78T02/` | Flash wrapper and RFD library |
+| `hal/image/sw_crc32.c` / `.h` | Full-image CRC32 |
 | `tools/prepare_projects.ps1` / `tools/package_images.ps1` | Project/vector generation and packaging |
 
-Measurements and compiler warnings are in `HANDOFF.md`. The
+The
 [acceptance matrix](https://released.github.io/slide_simple_renesas_isp_tool/#update-confirmation)
 separates normal update evidence from high-rate and fault testing.
 
